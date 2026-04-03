@@ -1,5 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
+// #include <stdio.h>
+// #include <stdlib.h>
 #include <stdint.h>
 
 struct Context {
@@ -13,6 +13,7 @@ extern "C" {
 
 void get_context(Context *c);
 void set_context(Context *c);
+void swap_context(Context *c1, Context *c2);
 
 #ifdef __cplusplus
 }
