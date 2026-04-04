@@ -7,6 +7,8 @@ struct Context {
   void *rbx, *rbp, *r12, *r13, *r14, *r15;
 };
 
+void *align_stack(char *raw, size_t size);
+
 #ifdef __cplusplus
 extern "C" {
 #endif
