@@ -6,8 +6,8 @@
 #include <stdint.h>
 #include <context_swap.h>
 
-#define MAX_FIBERS 14               // we can change this later
-#define STACK_SIZE 4096
+#define MAX_FIBERS 1024             // we can change this later
+#define STACK_SIZE 8192
 
 
 /* --------------------------- STRUCTS & ENUMS --------------------------- */
