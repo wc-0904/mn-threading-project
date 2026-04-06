@@ -1,3 +1,7 @@
+#ifndef CONTEXT_SWAP_H
+#define CONTEXT_SWAP_H
+
+
 // #include <stdio.h>
 // #include <stdlib.h>
 #include <stdint.h>
@@ -21,6 +25,4 @@ void swap_context(Context *c1, Context *c2);
 }
 #endif
 
-// extern void context_swap(void);
-// extern void get_context(Context c);
-// extern void set_context(Context c);
+#endif
