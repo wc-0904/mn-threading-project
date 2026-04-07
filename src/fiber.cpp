@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "context_swap.h"
 #include "fiber.h"
+#include "ws_deque.h"
 
 
 /* --------------------------- STRUCTS & ENUMS --------------------------- */
@@ -18,7 +19,7 @@ typedef struct run_queue {
 // scheduler context
 typedef struct scheduler_ctx {
     Context sched_context;          // scheduler's own context
-    run_queue_t *queue;             // cirucular buffer for now
+    deque *queue;             // cirucular buffer for now
     fiber_t *curr_running_fiber;     // currently running fiber
 } scheduler_ctx_t;
 
@@ -31,46 +32,25 @@ static bool slot_used[MAX_FIBERS];
 
 // main scheduler and queue
 static scheduler_ctx_t scheduler;
-static run_queue_t queue;
+static deque queue;
 
 
 /* --------------------------------- DEFINITIONS --------------------------------- */
 
-// returns 1 if full, 0 if not
-int queue_full(scheduler_ctx_t *s) {
-    return (s->queue->size == MAX_FIBERS);
-}
-
-// returns 1 if empty, 0 if not
-int queue_empty(scheduler_ctx_t *s) {
-    return (s->queue->size == 0);
-}
-
 // queues up a fiber
 int enq(scheduler_ctx_t *s, fiber_t *fib) {
-    // check size
-    if (queue_full(s)) return -1;
-
-    // add to tail
-    s->queue->fib_arr[s->queue->tail] = fib;
-    s->queue->size++;
-    s->queue->tail++;
-    s->queue->tail %= MAX_FIBERS;
+    // original checked if the queue was full and queued
+    // until we add dynamic queue resizing, this will drop if its too fast i think
+    s->queue->pushBottom(fib); 
     return 0;
 }
 
 // dequeues a fiber (NULL if queue is empty)
 fiber_t *deq(scheduler_ctx_t *s) {
-    // check size
-    if (queue_empty(s)) return NULL;
-
-    // dequeue from the head
-    fiber_t *ret = (s->queue->fib_arr[s->queue->head]);
-    s->queue->size--;
-    s->queue->head++;
-    s->queue->head %= MAX_FIBERS;
-
-    return ret;
+    fiber_t* f = s->queue->popBottom();
+    if (f == nullptr || f == reinterpret_cast<fiber_t*>(-1)) 
+        return nullptr;
+    return f;
 }
 
 // we use this to allocate a fiber instead of malloc
@@ -104,9 +84,8 @@ static void fiber_entry() {
 
 // initialize the scheduler (simple for now)
 void scheduler_init() {
-    queue = {};
     scheduler = {};
-    scheduler.queue = &queue;
+    scheduler.queue = new deque();
 }
 
 // spawns a single fiber
