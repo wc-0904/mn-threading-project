@@ -1,3 +1,6 @@
+#ifndef CIRCULAR_BUFFER_H
+#define CIRCULAR_BUFFER_H
+
 #include <fiber.h>
 #include <vector>
 
@@ -35,3 +38,5 @@ class circular_buffer {
             return nw;
         }
 };
+
+#endif
