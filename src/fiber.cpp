@@ -18,31 +18,12 @@ typedef struct worker {
     pthread_t thread;
 } worker_t;
 
-// // run queue (circular buffer for now)
-// typedef struct run_queue {
-//     fiber_t *fib_arr[MAX_FIBERS];
-//     uint32_t head;
-//     uint32_t tail;
-//     uint32_t size;
-// } run_queue_t;
-
-// // scheduler context
-// typedef struct scheduler_ctx {
-//     Context sched_context;          // scheduler's own context
-//     deque *queue;             // cirucular buffer for now
-//     fiber_t *curr_running_fiber;     // currently running fiber
-// } scheduler_ctx_t;
-
 
 /* ----------------------------------- GLOBALS ----------------------------------- */
 
 static fiber_t fiber_pool[MAX_FIBERS];
 static char stack_pool[MAX_FIBERS][STACK_SIZE];
 static bool slot_used[MAX_FIBERS];
-
-// // main scheduler and queue
-// static scheduler_ctx_t scheduler;
-// static deque queue;
 
 static worker_t workers[NUM_WORKERS];
 static __thread int worker_id;
@@ -129,6 +110,9 @@ static void *worker_loop(void *arg) {
         fiber_t *fib = w->queue->popBottom();
         if (fib == NULL || fib == reinterpret_cast<fiber_t*>(-1)) {
             fib = try_steal(id);
+            if (fib == nullptr) {
+                break;
+            }
         }
 
         fib->state = RUNNING;
