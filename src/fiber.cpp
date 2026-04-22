@@ -107,11 +107,19 @@ static void *worker_loop(void *arg) {
     while (1) {
 
         // get a fiber from the bottom of queue
-        fiber_t *fib = w->queue->popBottom();
-        if (fib == NULL || fib == reinterpret_cast<fiber_t*>(-1)) {
+        fiber_t *fib;
+        while (true) {
+            fib = w->queue->popBottom();
+            if (fib == reinterpret_cast<fiber_t*>(-1)) { // abort
+                continue; // retry (CAS race)
+            }
+            break;
+        }
+
+        if (fib == NULL) {
             fib = try_steal(id);
             if (fib == nullptr) {
-                break;
+                return NULL;
             }
         }
 
