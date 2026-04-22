@@ -51,22 +51,6 @@ static int next_worker = 0;
 
 /* --------------------------------- DEFINITIONS --------------------------------- */
 
-// // queues up a fiber
-// int enq(scheduler_ctx_t *s, fiber_t *fib) {
-//     // original checked if the queue was full and queued
-//     // until we add dynamic queue resizing, this will drop if its too fast i think
-//     s->queue->pushBottom(fib); 
-//     return 0;
-// }
-
-// // dequeues a fiber (NULL if queue is empty)
-// fiber_t *deq(scheduler_ctx_t *s) {
-//     fiber_t* f = s->queue->popBottom();
-//     if (f == nullptr || f == reinterpret_cast<fiber_t*>(-1)) 
-//         return nullptr;
-//     return f;
-// }
-
 // we use this to allocate a fiber instead of malloc
 // basically picks a pre allocated chunk from the fiber/stack
 // pool, return NULL if no space available
@@ -86,15 +70,6 @@ void free_fiber(fiber_t *fib) {
     slot_used[idx] = false;
 }
 
-// static void fiber_entry() {
-//     // set the current running fiber and call the func
-//     fiber_t *fib = scheduler.curr_running_fiber;
-//     fib->func(fib->args);
-
-//     // once func returns, set it as done and swap back to scheduler
-//     fib->state = DONE;
-//     swap_context(&fib->ctx, &scheduler.sched_context);
-// }
 
 static void fiber_entry() {
     // identify the current worker thread
@@ -110,19 +85,30 @@ static void fiber_entry() {
 
 }
 
-// // yield to the scheduler
-// void yield() {
-//     scheduler.curr_running_fiber->state = RUNNABLE;
-//     swap_context(&scheduler.curr_running_fiber->ctx, &scheduler.sched_context);
-// }
-
 // yield to the scheduler
 void yield() {
     // identify the current worker thread
     worker_t *w = &workers[worker_id];
-
     w->curr_running_fiber->state = RUNNABLE;
     swap_context(&(w->curr_running_fiber->ctx), &(w->sched_context));
+}
+
+// steal work from another words non empty queue
+fiber_t* try_steal(int my_id) {
+    for (int i = 0; i < NUM_WORKERS; i++) {
+        if (i == my_id) continue;
+        while (true) {
+            fiber_t* f = workers[i].queue->steal();
+            if (f == reinterpret_cast<fiber_t*>(-1)) {
+                continue; // retry same worker (CAS race)
+            }
+            if (f != nullptr) {
+                return f; // success
+            }
+            break; // empty so stop trying this worker
+        }
+    }
+    return nullptr;
 }
 
 // main worker loop
@@ -142,7 +128,7 @@ static void *worker_loop(void *arg) {
         // get a fiber from the bottom of queue
         fiber_t *fib = w->queue->popBottom();
         if (fib == NULL || fib == reinterpret_cast<fiber_t*>(-1)) {
-            break;  // no stealing yet, but would add steal logic here
+            fib = try_steal(id);
         }
 
         fib->state = RUNNING;
@@ -203,29 +189,6 @@ int spawn(void (*func)(void *), void *args) {
     return 0;
 }
 
-// // main scheduler loop
-// void scheduler_run() {
-    
-//     while (1) {
-//         fiber_t *next_fib = deq(&scheduler);
-
-//         // if no fibers left, we done
-//         if (next_fib == NULL) break;
-
-//         // set state and swap into fiber
-//         next_fib->state = RUNNING;
-//         scheduler.curr_running_fiber = next_fib;
-//         swap_context(&scheduler.sched_context, &next_fib->ctx);
-
-//         // once control comes back, check state
-//         if (next_fib->state == RUNNABLE) {
-//             enq(&scheduler, next_fib);
-//         }
-//         else if (next_fib->state == DONE) {
-//             free_fiber(next_fib);
-//         }
-//     }
-// }
 
 // main scheduler
 void scheduler_run() {
