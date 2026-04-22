@@ -4,11 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <pthread.h>
 #include <context_swap.h>
 
 #define MAX_FIBERS 1024             // we can change this later
 #define STACK_SIZE 8192
-
+#define NUM_WORKERS 8
 
 /* --------------------------- STRUCTS & ENUMS --------------------------- */
 
