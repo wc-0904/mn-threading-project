@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <atomic>
 #include "context_swap.h"
 #include "fiber.h"
 #include "ws_deque.h"
@@ -29,6 +30,8 @@ static worker_t workers[NUM_WORKERS];
 static __thread int worker_id;
 static int next_worker = 0;
 
+static pthread_spinlock_t pool_lock;
+static std::atomic<int> active_fibers{0};
 
 /* --------------------------------- DEFINITIONS --------------------------------- */
 
@@ -36,34 +39,49 @@ static int next_worker = 0;
 // basically picks a pre allocated chunk from the fiber/stack
 // pool, return NULL if no space available
 void *alloc_fiber() {
+    pthread_spin_lock(&pool_lock);
     for (int i = 0; i < MAX_FIBERS; i++) {
         if (!slot_used[i]) {
             slot_used[i] = true;
             fiber_pool[i].user_stack = stack_pool[i];
+            pthread_spin_unlock(&pool_lock);
             return &fiber_pool[i];
         }
     }
+    pthread_spin_unlock(&pool_lock);
     return NULL;
 }
 
 void free_fiber(fiber_t *fib) {
+    pthread_spin_lock(&pool_lock);
     int idx = fib - fiber_pool;
     slot_used[idx] = false;
+    pthread_spin_unlock(&pool_lock);
 }
 
 
-static void fiber_entry() {
-    // identify the current worker thread
-    worker_t *w = &workers[worker_id];
+// static void fiber_entry() {
+//     // identify the current worker thread
+//     worker_t *w = &workers[worker_id];
     
-    // set the current running fiber and call the func
-    fiber_t *fib = w->curr_running_fiber;
+//     // set the current running fiber and call the func
+//     fiber_t *fib = w->curr_running_fiber;
+//     fib->func(fib->args);
+
+//     // once func returns, set it as done and swap back to scheduler
+//     fib->state = DONE;
+//     swap_context(&fib->ctx, &w->sched_context);
+
+// }
+
+static void fiber_entry() {
+    fiber_t *fib = workers[worker_id].curr_running_fiber;
     fib->func(fib->args);
 
-    // once func returns, set it as done and swap back to scheduler
+    // fiber may have migrated via stealing, re-read current worker
+    worker_t *w = &workers[worker_id];
     fib->state = DONE;
     swap_context(&fib->ctx, &w->sched_context);
-
 }
 
 // yield to the scheduler
@@ -104,7 +122,7 @@ static void *worker_loop(void *arg) {
 
     worker_t *w = &workers[id];
 
-    while (1) {
+    while (active_fibers.load() > 0) {
 
         // get a fiber from the bottom of queue
         fiber_t *fib;
@@ -118,8 +136,9 @@ static void *worker_loop(void *arg) {
 
         if (fib == NULL) {
             fib = try_steal(id);
-            if (fib == nullptr) {
-                return NULL;
+            if (fib == NULL) {
+                sched_yield();  // backoff before retrying
+                continue;
             }
         }
 
@@ -134,6 +153,7 @@ static void *worker_loop(void *arg) {
         // if done, free the fiber
         } else if (fib->state == DONE) {
             free_fiber(fib);
+            active_fibers.fetch_sub(1);
         }
     }
 
@@ -142,6 +162,8 @@ static void *worker_loop(void *arg) {
 
 // initialize the scheduler
 void scheduler_init() {
+
+    pthread_spin_init(&pool_lock, 0);
 
     // initialize the workers (8 workers = 8 pthreads)
     // each worker has it's own id, deque 
@@ -178,6 +200,8 @@ int spawn(void (*func)(void *), void *args) {
 
     // track the next worker to be handled
     next_worker = (next_worker + 1) % NUM_WORKERS;
+
+    active_fibers.fetch_add(1);
     return 0;
 }
 

@@ -59,4 +59,5 @@ tsan: clean test
 clean:
 	rm -rf build
 
+.PRECIOUS: build/test/%.o
 .PHONY: all clean test tsan
