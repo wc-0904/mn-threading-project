@@ -46,6 +46,7 @@ std::atomic<long> steal_successes{0};
 std::atomic<long> steal_aborts{0};
 bool              stealing_enabled = true;
 
+
 /* --------------------------- FIBER POOL ---------------------------- */
 
 static void *alloc_fiber() {
@@ -97,6 +98,7 @@ void free_counter(counter_t *c) {
 int get_counter_index(counter_t *c) {
     return c - counter_pool;
 }
+int get_worker_id() { return worker_id; }
 
 /* --------------------------- FIBER EXECUTION ----------------------- */
 
@@ -269,6 +271,18 @@ void scheduler_run(int n_workers) {
     worker_loop(&workers[0].id);
     for (int i = 1; i < n_workers; i++)
         pthread_join(workers[i].thread, NULL);
+}
+
+void scheduler_reset() {
+    for (int i = 0; i < MAX_FIBERS; i++)
+        slot_used[i] = false;
+    for (int i = 0; i < MAX_COUNTERS; i++) {
+        counter_used[i]               = false;
+        counter_pool[i].waiting_fiber  = nullptr;
+        counter_pool[i].waiting_worker = -1;
+    }
+    total_spawned.store(0);
+    total_done.store(0);
 }
 
 int spawn(void (*func)(void *), void *args) {

@@ -50,6 +50,7 @@ typedef struct fiber {
 
 void scheduler_init(int n_workers = NUM_WORKERS);
 void scheduler_run(int n_workers = NUM_WORKERS);
+void scheduler_reset();
 
 // spawn an independent fiber
 int spawn(void (*func)(void *), void *args);
@@ -65,6 +66,7 @@ void yield();
 void wait_for_counter(counter_t *c, int value);
 
 int get_counter_index(counter_t *c);
+int get_worker_id();
 
 /* --------------------------- COUNTER API --------------------------- */
 
