@@ -56,13 +56,16 @@ static void run_balanced(int n_workers, bool steal) {
 
 static work_arg_t imbalanced_args[NUM_FIBERS];
 
+void imbalanced_spawner(void *arg) {
+    // this fiber runs on some worker, spawns all children onto its own queue
+    for (int i = 0; i < NUM_FIBERS; i++)
+        spawn(heterogeneous_work, &imbalanced_args[i]);
+}
+
 static void run_imbalanced(int n_workers, bool steal) {
-
-    for (int i = 0; i < NUM_FIBERS; i++) {
+    for (int i = 0; i < NUM_FIBERS; i++)
         imbalanced_args[i].complexity = (i % 10 == 0) ? 1 : 0;
-    }
 
-    // print workload composition
     int heavy = 0, light = 0;
     for (int i = 0; i < NUM_FIBERS; i++) {
         if (imbalanced_args[i].complexity) heavy++;
@@ -76,10 +79,9 @@ static void run_imbalanced(int n_workers, bool steal) {
     scheduler_init(n_workers);
 
     long long t0 = now_ns();
-    for (int i = 0; i < NUM_FIBERS; i++) {
-        set_next_worker(0);
-        spawn(heterogeneous_work, &imbalanced_args[i]);
-    }
+    // spawn a single spawner fiber — it will run on worker 0 and
+    // push all children onto worker 0's queue
+    spawn(imbalanced_spawner, NULL);
     scheduler_run(n_workers);
     long long t1 = now_ns();
 
@@ -103,6 +105,11 @@ static void run_imbalanced(int n_workers, bool steal) {
     print_scheduler_stats();
 }
 
+void uniform_spawner(void *arg) {
+    for (int i = 0; i < NUM_FIBERS; i++)
+        spawn(balanced_work, NULL);
+}
+
 static void run_migration_test(int n_workers) {
     printf("\n--- Cache migration test (uniform work) ---\n");
     stealing_enabled = true;
@@ -110,10 +117,7 @@ static void run_migration_test(int n_workers) {
     scheduler_init(n_workers);
 
     long long t0 = now_ns();
-    for (int i = 0; i < NUM_FIBERS; i++) {
-        set_next_worker(0);  // all on worker 0 to force stealing
-        spawn(balanced_work, NULL);  // uniform work
-    }
+    spawn(uniform_spawner, NULL);
     scheduler_run(n_workers);
     long long t1 = now_ns();
 
