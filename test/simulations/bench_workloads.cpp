@@ -37,12 +37,12 @@ static long long now_ns() {
 static void run_balanced(int n_workers, bool steal) {
     stealing_enabled = steal;
     reset_scheduler_stats();
-    scheduler_init();
+    scheduler_init(n_workers);
 
     long long t0 = now_ns();
     for (int i = 0; i < NUM_FIBERS; i++)
         spawn(balanced_work, NULL);
-    scheduler_run();
+    scheduler_run(n_workers);
     long long t1 = now_ns();
 
     double ms = (t1 - t0) / 1e6;
@@ -73,14 +73,14 @@ static void run_imbalanced(int n_workers, bool steal) {
 
     stealing_enabled = steal;
     reset_scheduler_stats();
-    scheduler_init();
+    scheduler_init(n_workers);
 
     long long t0 = now_ns();
     for (int i = 0; i < NUM_FIBERS; i++) {
         set_next_worker(0);
         spawn(heterogeneous_work, &imbalanced_args[i]);
     }
-    scheduler_run();
+    scheduler_run(n_workers);
     long long t1 = now_ns();
 
     int per_worker_local[NUM_WORKERS] = {};
@@ -103,18 +103,18 @@ static void run_imbalanced(int n_workers, bool steal) {
     print_scheduler_stats();
 }
 
-static void run_migration_test() {
+static void run_migration_test(int n_workers) {
     printf("\n--- Cache migration test (uniform work) ---\n");
     stealing_enabled = true;
     reset_scheduler_stats();
-    scheduler_init();
+    scheduler_init(n_workers);
 
     long long t0 = now_ns();
     for (int i = 0; i < NUM_FIBERS; i++) {
         set_next_worker(0);  // all on worker 0 to force stealing
         spawn(balanced_work, NULL);  // uniform work
     }
-    scheduler_run();
+    scheduler_run(n_workers);
     long long t1 = now_ns();
 
     print_scheduler_stats();
@@ -122,17 +122,26 @@ static void run_migration_test() {
 
 int main() {
     printf("=== Benchmark Suite ===\n");
-    printf("NUM_FIBERS=%d  NUM_WORKERS=%d\n\n", NUM_FIBERS, NUM_WORKERS);
+    printf("NUM_FIBERS=%d  MAX_WORKERS=%d\n\n", NUM_FIBERS, NUM_WORKERS);
 
-    printf("--- Balanced workload ---\n");
-    run_balanced(NUM_WORKERS, true);
-    run_balanced(NUM_WORKERS, false);
+    int worker_counts[] = {1, 2, 4, 8};
+    int num_counts = 4;
 
-    printf("\n--- Imbalanced workload ---\n");
-    run_imbalanced(NUM_WORKERS, true);
-    run_imbalanced(NUM_WORKERS, false);
+    printf("--- Balanced workload scaling ---\n");
+    for (int i = 0; i < num_counts; i++) {
+        run_balanced(worker_counts[i], true);
+        run_balanced(worker_counts[i], false);
+        printf("\n");
+    }
 
-    run_migration_test();
+    printf("--- Imbalanced workload scaling ---\n");
+    for (int i = 0; i < num_counts; i++) {
+        run_imbalanced(worker_counts[i], true);
+        printf("\n");
+    }
+
+    printf("--- Cache migration test ---\n");
+    run_migration_test(8);
 
     return 0;
 }

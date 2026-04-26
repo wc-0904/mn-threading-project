@@ -16,9 +16,6 @@ void my_work(void *arg) {
     completed.fetch_add(1);
 }
 
-// Custom spawn that targets specific workers
-extern void scheduler_init();
-extern void scheduler_run();
 
 int main() {
     printf("[test_high_steal_contention]\n");
