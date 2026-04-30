@@ -16,7 +16,7 @@ OBJS		= $(CPP_OBJS) $(ASM_OBJS)
 # make each test file it's own executuable
 TEST_BINS	= $(patsubst test/%.cpp, build/test/%, $(TEST_SRCS))
 
-LDFLAGS = -lpthread -lm
+LDFLAGS = -lpthread
 
 all: build $(OBJS)
 
