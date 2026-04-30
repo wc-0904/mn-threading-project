@@ -52,7 +52,7 @@ typedef struct {
 } queens_arg_t;
 
 /* ---- task pool — sized for prefix_depth rows ---- */
-#define MAX_TASKS 4096
+#define MAX_TASKS 2048
 static queens_arg_t task_pool[MAX_TASKS];
 static int          n_tasks;
 
@@ -146,7 +146,7 @@ int main() {
     printf("How many rows to pre-enumerate before switching to sequential?\n");
     int    best_depth = 1;
     double best_ms    = 1e9;
-    for (int depth = 1; depth <= 4; depth++) {
+    for (int depth = 1; depth <= 3; depth++) {
         double ms = run(8, depth, 0, expected);
         if (ms < best_ms) { best_ms = ms; best_depth = depth; }
     }

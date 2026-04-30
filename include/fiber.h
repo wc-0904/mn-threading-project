@@ -8,10 +8,10 @@
 #include <atomic>
 #include "context_swap.h"
 
-#define MAX_FIBERS   1024
+#define MAX_FIBERS   2048
 #define STACK_SIZE   65536
 #define NUM_WORKERS  8
-#define MAX_COUNTERS 256
+#define MAX_COUNTERS 2048
 
 /* --------------------------- FIBER STATE --------------------------- */
 
