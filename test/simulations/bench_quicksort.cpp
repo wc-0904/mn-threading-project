@@ -34,7 +34,10 @@ typedef struct {
     int  hi;
 } sort_arg_t;
 
-static sort_arg_t sort_args[ARRAY_SIZE / SEQ_CUTOFF + 16];
+// Even binary splitting terminates at depth ceil(log2(ARRAY_SIZE/SEQ_CUTOFF)).
+// The tree can have up to next_pow2(ARRAY_SIZE/SEQ_CUTOFF) leaves and twice as
+// many internal nodes, each calling alloc_sort_arg() twice.  4x headroom.
+static sort_arg_t sort_args[ARRAY_SIZE / SEQ_CUTOFF * 4 + 64];
 static std::atomic<int> sort_arg_idx{0};
 
 static sort_arg_t *alloc_sort_arg() {
